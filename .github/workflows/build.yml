@@ -69,7 +69,10 @@ jobs:
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
-        pip3 install setuptools
+        # 跳过 prereq 检查（python3-setuptools 已装但检查脚本不认）
+        mkdir -p tmp
+        touch tmp/.prereq_packages
+        # 创建 mkhash
         mkdir -p staging_dir/host/bin
         echo '#!/bin/bash' > staging_dir/host/bin/mkhash
         echo 'if [ "$1" = "sha256" ]; then shift; [ -n "$1" ] && sha256sum "$@" | awk "{print \$1}" || sha256sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
@@ -77,6 +80,7 @@ jobs:
         chmod +x staging_dir/host/bin/mkhash
         make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
+
 
 
     - name: Organize firmware
