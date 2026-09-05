@@ -14,4 +14,27 @@ EOF
 mkdir -p staging_dir/host
 touch staging_dir/host/.prereq-build
 
+# 3. 创建 mkhash 替代脚本（修复237源码构建顺序bug）
+mkdir -p staging_dir/host/bin
+cat > staging_dir/host/bin/mkhash << 'EOF'
+#!/bin/bash
+if [ "$1" = "sha256" ]; then
+    shift
+    if [ -n "$1" ]; then
+        sha256sum "$@" 2>/dev/null | awk '{print $1}'
+    else
+        sha256sum 2>/dev/null | awk '{print $1}'
+    fi
+elif [ "$1" = "md5" ]; then
+    shift
+    if [ -n "$1" ]; then
+        md5sum "$@" 2>/dev/null | awk '{print $1}'
+    else
+        md5sum 2>/dev/null | awk '{print $1}'
+    fi
+fi
+EOF
+chmod +x staging_dir/host/bin/mkhash
+echo "mkhash wrapper created"
+
 echo "===== DIY 第一部分完成 ====="
