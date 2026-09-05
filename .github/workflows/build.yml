@@ -74,8 +74,8 @@ jobs:
         touch tmp/.prereq_packages
         # 链接系统常用工具（修复237源码构建顺序问题）
         mkdir -p staging_dir/host/bin
-        for tool in gzip tar xz bzip2 cpio awk sed grep find; do
-            [ ! -f "staging_dir/host/bin/$tool" ] && ln -sf "$(which $tool)" "staging_dir/host/bin/$tool"
+        for tool in gzip tar xz bzip2 cpio awk sed grep find gcc cc g++ cpp ld as ar ranlib nm strip objcopy objdump make cmake python3 perl; do
+            [ -x "$(which $tool 2>/dev/null)" ] && [ ! -f "staging_dir/host/bin/$tool" ] && ln -sf "$(which $tool)" "staging_dir/host/bin/$tool"
         done
         # 创建 mkhash
         echo '#!/bin/bash' > staging_dir/host/bin/mkhash
