@@ -10,36 +10,12 @@ src-git istore https://github.com/linkease/istore.git
 src-git nas https://github.com/linkease/nas-packages.git
 EOF
 
-# 2. 跳过 237 源码的依赖检查 bug
+# 2. 跳过 237 源码的 prereq 检查 bug
 mkdir -p staging_dir/host
 touch staging_dir/host/.prereq-build
 
-# 3. 创建 mkhash 替代脚本（修复237源码构建顺序bug）
-mkdir -p staging_dir/host/bin
-cat > staging_dir/host/bin/mkhash << 'EOF'
-#!/bin/bash
-if [ "$1" = "sha256" ]; then
-    shift
-    if [ -n "$1" ]; then
-        sha256sum "$@" 2>/dev/null | awk '{print $1}'
-    else
-        sha256sum 2>/dev/null | awk '{print $1}'
-    fi
-elif [ "$1" = "md5" ]; then
-    shift
-    if [ -n "$1" ]; then
-        md5sum "$@" 2>/dev/null | awk '{print $1}'
-    else
-        md5sum 2>/dev/null | awk '{print $1}'
-    fi
-fi
-EOF
-chmod +x staging_dir/host/bin/mkhash
-echo "mkhash wrapper created"
-
-# 4. 删除有问题的 5g-modem 厂商驱动（代码老旧，和新内核不兼容）
-rm -rf package/mtk/applications/5g-modem
-
-
+# 3. 删除 qmodem 的问题包（ndisc6 递归依赖 + 补丁失败）
+rm -rf feeds/qmodem/application/ndisc6
+rm -rf feeds/qmodem/application/rdisc6
 
 echo "===== DIY 第一部分完成 ====="
