@@ -37,4 +37,9 @@ EOF
 chmod +x staging_dir/host/bin/mkhash
 echo "mkhash wrapper created"
 
+# 4. 删除有问题的 5g-modem 厂商驱动（代码老旧，和新内核不兼容）
+rm -rf package/mtk/applications/5g-modem
+
+
+
 echo "===== DIY 第一部分完成 ====="
