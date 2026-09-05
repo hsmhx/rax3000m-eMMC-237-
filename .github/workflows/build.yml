@@ -83,7 +83,7 @@ jobs:
         echo 'if [ "$1" = "md5" ]; then shift; [ -n "$1" ] && md5sum "$@" | awk "{print \$1}" || md5sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
         chmod +x staging_dir/host/bin/mkhash
         # 开始编译
-        make -j1 V=s
+        make -j4 V=s
         echo "compile_status=success" >> $GITHUB_ENV
 
     - name: Organize firmware
