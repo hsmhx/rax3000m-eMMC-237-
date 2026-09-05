@@ -18,7 +18,6 @@ on:
 env:
   REPO_URL: https://github.com/padavanonly/immortalwrt-mt798x-6.6.git
   REPO_BRANCH: openwrt-24.10-6.6
-  TZ: Asia/Shanghai
 
 jobs:
   build:
@@ -35,10 +34,10 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget libfuse-dev ccache
+        sudo -E apt-get -qq install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev python3-distutils python3-setuptools python3-pip rsync unzip zlib1g-dev file wget libfuse-dev ccache
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "$TZ"
+        sudo timedatectl set-timezone "Asia/Shanghai"
         sudo mkdir -p /workdir
         sudo chown $USER:$GROUPS /workdir
         echo "GOPROXY=https://goproxy.cn,direct" >> $GITHUB_ENV
@@ -66,10 +65,19 @@ jobs:
         echo "===== Target ====="
         grep "CONFIG_TARGET_" .config | head -5
 
-    - name: Build firmware (single thread)
+    - name: Build firmware
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
+        if [ ! -f staging_dir/host/bin/mkhash ]; then
+            mkdir -p staging_dir/host/bin
+            cat > staging_dir/host/bin/mkhash << 'INNEREOF'
+#!/bin/bash
+if [ "$1" = "sha256" ]; then shift; [ -n "$1" ] && sha256sum "$@" | awk '{print $1}' || sha256sum | awk '{print $1}'; fi
+if [ "$1" = "md5" ]; then shift; [ -n "$1" ] && md5sum "$@" | awk '{print $1}' || md5sum | awk '{print $1}'; fi
+INNEREOF
+            chmod +x staging_dir/host/bin/mkhash
+        fi
         make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
 
