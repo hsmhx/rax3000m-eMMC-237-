@@ -66,11 +66,11 @@ jobs:
         echo "===== 目标平台 ====="
         grep "CONFIG_TARGET_" .config | head -5
 
-    - name: 编译主机工具（单线程，必须先做）
+      - name: 先编译 mkhash 工具
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
-        make tools/install -j1 V=s
+        make tools/mkhash/compile -j1 V=s
 
     - name: 下载软件包
       if: github.event.inputs.skip_build != 'true'
@@ -79,7 +79,13 @@ jobs:
         make download -j8 V=s
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: 编译工具链（单线程）
+    - name: 编译主机工具
+      if: github.event.inputs.skip_build != 'true'
+      run: |
+        cd openwrt
+        make tools/install -j1 V=s
+
+    - name: 编译工具链
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
@@ -91,6 +97,7 @@ jobs:
         cd openwrt
         make -j$(nproc) V=s || make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
+
 
     - name: 整理固件
       if: env.compile_status == 'success'
