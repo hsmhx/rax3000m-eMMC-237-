@@ -66,36 +66,11 @@ jobs:
         echo "===== Target ====="
         grep "CONFIG_TARGET_" .config | head -5
 
-    - name: Compile mkhash first
+    - name: Build firmware (single thread)
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
-        make tools/mkhash/compile -j1 V=s
-
-    - name: Download packages
-      if: github.event.inputs.skip_build != 'true'
-      run: |
-        cd openwrt
-        make download -j8 V=s
-        find dl -size -1024c -exec rm -f {} \;
-
-    - name: Compile host tools
-      if: github.event.inputs.skip_build != 'true'
-      run: |
-        cd openwrt
-        make tools/install -j1 V=s
-
-    - name: Compile toolchain
-      if: github.event.inputs.skip_build != 'true'
-      run: |
-        cd openwrt
-        make toolchain/install -j1 V=s
-
-    - name: Build firmware
-      if: github.event.inputs.skip_build != 'true'
-      run: |
-        cd openwrt
-        make -j$(nproc) V=s || make -j1 V=s
+        make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
 
     - name: Organize firmware
