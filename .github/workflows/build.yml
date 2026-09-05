@@ -1,17 +1,14 @@
 name: RAX3000M ImmortalWrt 自动编译
 
 on:
-  # 每天北京时间早上8点检查更新并编译
   schedule:
     - cron: '0 0 * * *'
-  # 手动触发
   workflow_dispatch:
     inputs:
       skip_build:
         description: '跳过编译，仅测试环境'
         required: false
         default: 'false'
-  # 推送代码时触发
   push:
     branches:
       - main
@@ -21,12 +18,6 @@ on:
 env:
   REPO_URL: https://github.com/padavanonly/immortalwrt-mt798x-24.10.git
   REPO_BRANCH: openwrt-24.10-6.6
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .config
-  DIY_P1_SH: diy-part1.sh
-  DIY_P2_SH: diy-part2.sh
-  UPLOAD_RELEASE: true
-  UPLOAD_123PAN: true
   TZ: Asia/Shanghai
 
 jobs:
@@ -36,16 +27,6 @@ jobs:
     steps:
     - name: 检出仓库
       uses: actions/checkout@v4
-
-    - name: 检查源码更新
-      id: check
-      run: |
-        git clone --depth 1 -b $REPO_BRANCH $REPO_URL source
-        cd source
-        echo "commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-        echo "commit_msg=$(git log -1 --pretty=format:'%s')" >> $GITHUB_OUTPUT
-        cd ..
-        rm -rf source
 
     - name: 初始化编译环境
       if: github.event.inputs.skip_build != 'true'
@@ -71,128 +52,74 @@ jobs:
         git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-    - name: 加载自定义 feeds 配置
-      if: github.event.inputs.skip_build != 'true'
-      run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-        chmod +x $DIY_P1_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
-
-    - name: 更新 feeds
-      if: github.event.inputs.skip_build != 'true'
-      run: cd openwrt && ./scripts/feeds update -a
-
-    - name: 安装 feeds
-      if: github.event.inputs.skip_build != 'true'
-      run: cd openwrt && ./scripts/feeds install -a
-
     - name: 加载自定义配置
       if: github.event.inputs.skip_build != 'true'
       run: |
         [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P2_SH
+        [ -e .config ] && mv .config openwrt/.config
+        chmod +x diy-part1.sh diy-part2.sh
         cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+        $GITHUB_WORKSPACE/diy-part1.sh
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        $GITHUB_WORKSPACE/diy-part2.sh
+        echo "===== 目标平台 ====="
+        grep "CONFIG_TARGET_" .config | head -5
+
+    - name: 编译主机工具（单线程，必须先做）
+      if: github.event.inputs.skip_build != 'true'
+      run: |
+        cd openwrt
+        make tools/install -j1 V=s
 
     - name: 下载软件包
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
         make download -j8 V=s
-        find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: 开始编译
+    - name: 编译工具链（单线程）
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
-        echo -e "$(nproc) thread compile"
+        make toolchain/install -j1 V=s
+
+    - name: 编译固件
+      if: github.event.inputs.skip_build != 'true'
+      run: |
+        cd openwrt
         make -j$(nproc) V=s || make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
 
-    - name: 整理固件文件
-      if: github.event.inputs.skip_build != 'true'
+    - name: 整理固件
+      if: env.compile_status == 'success'
       run: |
         cd openwrt
         mkdir -p output/firmware
-        mkdir -p output/packages
         cp -f bin/targets/mediatek/filogic/*sysupgrade* output/firmware/ 2>/dev/null || true
         cp -f bin/targets/mediatek/filogic/*recovery* output/firmware/ 2>/dev/null || true
         cp -f bin/targets/mediatek/filogic/*emmc* output/firmware/ 2>/dev/null || true
-        cp -f bin/targets/mediatek/filogic/*gpt* output/firmware/ 2>/dev/null || true
-        cp -f bin/targets/mediatek/filogic/*bl2* output/firmware/ 2>/dev/null || true
-        cp -f bin/targets/mediatek/filogic/*fip* output/firmware/ 2>/dev/null || true
-        cp -f bin/targets/mediatek/filogic/packages/* output/packages/ 2>/dev/null || true
-        cd output
-        zip -r firmware.zip firmware/
-        zip -r packages.zip packages/
-        ls -lh firmware/ packages/
-        echo "FIRMWARE_PATH=$GITHUB_WORKSPACE/openwrt/output" >> $GITHUB_ENV
+        cd output && zip -r firmware.zip firmware/
+        ls -lh firmware/
 
-    - name: 上传固件到 Artifacts
-      if: github.event.inputs.skip_build != 'true'
-      uses: actions/upload-artifact@v4
-      with:
-        name: RAX3000M-ImmortalWrt-${{ steps.check.outputs.commit }}
-        path: |
-          openwrt/output/firmware/*
-          openwrt/output/*.zip
-        retention-days: 7
-
-    - name: 生成 Release 标签
-      if: env.compile_status == 'success' && github.event.inputs.skip_build != 'true'
-      id: tag
-      run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
-        echo "release_name=RAX3000M ImmortalWrt $(date +"%Y年%m月%d日 %H:%M")" >> $GITHUB_OUTPUT
-
-    - name: 上传到 GitHub Releases
-      if: env.UPLOAD_RELEASE == 'true' && env.compile_status == 'success' && github.event.inputs.skip_build != 'true'
+    - name: 上传到 Releases
+      if: env.compile_status == 'success'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        name: ${{ steps.tag.outputs.release_name }}
-        body: |
-          ## RAX3000M ImmortalWrt 固件
-          
-          - 源码：padavanonly/immortalwrt-mt798x-24.10
-          - 分支：openwrt-24.10-6.6
-          - 源码提交：${{ steps.check.outputs.commit }}
-          - 提交信息：${{ steps.check.outputs.commit_msg }}
-          - 编译时间：$(date +"%Y-%m-%d %H:%M:%S")
-          
-          ### 包含插件
-          - qmodem（5G模块管理）
-          - iStore（应用商店）
-          - 磁盘管理
-          - argon主题
-          - USB网络共享
-          - MTK硬件加速
-          
-          ### 文件说明
-          - *sysupgrade*：系统升级包（刷机用）
-          - *recovery*：恢复镜像
-          - *emmc-gpt*：GPT分区表
-          - *emmc-bl2*：BL2引导
-          - *emmc-fip*：U-Boot引导
-        files: |
-          openwrt/output/firmware/*
-          openwrt/output/firmware.zip
-          openwrt/output/packages.zip
+        tag_name: build-${{ github.run_id }}
+        name: RAX3000M ImmortalWrt ${{ github.run_id }}
+        files: openwrt/output/firmware/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     - name: 上传到 123 网盘
-      if: env.UPLOAD_123PAN == 'true' && env.compile_status == 'success' && github.event.inputs.skip_build != 'true'
+      if: env.compile_status == 'success'
       uses: baiyao105/123pan-uploader-action@v1
       with:
         auth-method: 'password'
         username: ${{ secrets.PAN123_USERNAME }}
         password: ${{ secrets.PAN123_PASSWORD }}
         path: 'openwrt/output/firmware'
-        destination: 'RAX3000M-ImmortalWrt/${{ steps.tag.outputs.release_tag }}'
+        destination: 'RAX3000M-ImmortalWrt'
         conflict-strategy: 'overwrite'
-        max-retries: 5
-        chunk-size: 10
