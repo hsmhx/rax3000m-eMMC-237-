@@ -1,4 +1,4 @@
-name: RAX3000M ImmortalWrt 自动编译
+name: RAX3000M ImmortalWrt Auto Build
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       skip_build:
-        description: '跳过编译，仅测试环境'
+        description: 'Skip build, test env only'
         required: false
         default: 'false'
   push:
@@ -25,10 +25,10 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: 检出仓库
+    - name: Checkout
       uses: actions/checkout@v4
 
-    - name: 初始化编译环境
+    - name: Install dependencies
       if: github.event.inputs.skip_build != 'true'
       env:
         DEBIAN_FRONTEND: noninteractive
@@ -44,7 +44,7 @@ jobs:
         echo "GOPROXY=https://goproxy.cn,direct" >> $GITHUB_ENV
         echo "GOSUMDB=off" >> $GITHUB_ENV
 
-    - name: 克隆源码
+    - name: Clone source
       if: github.event.inputs.skip_build != 'true'
       working-directory: /workdir
       run: |
@@ -52,7 +52,7 @@ jobs:
         git clone --depth 1 -b $REPO_BRANCH $REPO_URL openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-    - name: 加载自定义配置
+    - name: Load custom config
       if: github.event.inputs.skip_build != 'true'
       run: |
         [ -e files ] && mv files openwrt/files
@@ -63,43 +63,42 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         $GITHUB_WORKSPACE/diy-part2.sh
-        echo "===== 目标平台 ====="
+        echo "===== Target ====="
         grep "CONFIG_TARGET_" .config | head -5
 
-      - name: 先编译 mkhash 工具
+    - name: Compile mkhash first
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
         make tools/mkhash/compile -j1 V=s
 
-    - name: 下载软件包
+    - name: Download packages
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
         make download -j8 V=s
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: 编译主机工具
+    - name: Compile host tools
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
         make tools/install -j1 V=s
 
-    - name: 编译工具链
+    - name: Compile toolchain
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
         make toolchain/install -j1 V=s
 
-    - name: 编译固件
+    - name: Build firmware
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
         make -j$(nproc) V=s || make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
 
-
-    - name: 整理固件
+    - name: Organize firmware
       if: env.compile_status == 'success'
       run: |
         cd openwrt
@@ -110,7 +109,7 @@ jobs:
         cd output && zip -r firmware.zip firmware/
         ls -lh firmware/
 
-    - name: 上传到 Releases
+    - name: Upload to Releases
       if: env.compile_status == 'success'
       uses: softprops/action-gh-release@v2
       with:
@@ -120,7 +119,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: 上传到 123 网盘
+    - name: Upload to 123Pan
       if: env.compile_status == 'success'
       uses: baiyao105/123pan-uploader-action@v1
       with:
