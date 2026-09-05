@@ -1,0 +1,10 @@
+#!/bin/sh
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+# 修复 uhttpd 启动问题：杀掉异常的 uhttpd，手动启动
+killall -9 uhttpd 2>/dev/null
+sleep 1
+uhttpd -h /www -r ImmortalWrt -p 0.0.0.0:80 &
+
+exit 0
