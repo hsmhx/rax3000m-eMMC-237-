@@ -3,6 +3,9 @@
 # DIY 脚本第二部分：在安装 feeds 之后、编译之前执行
 #=================================================
 
+# 使用官方预配置（MT7981 = RAX3000M）
+cp -f defconfig/mt7981-ax3000.config .config
+
 # 1. 删除 qmodem 的 ndisc6/rdisc6 问题包（递归依赖 bug）
 rm -rf feeds/qmodem/application/ndisc6
 rm -rf feeds/qmodem/application/rdisc6
