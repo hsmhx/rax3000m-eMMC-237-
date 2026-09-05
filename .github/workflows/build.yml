@@ -69,19 +69,22 @@ jobs:
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
-        # 跳过 prereq 检查（python3-setuptools 已装但检查脚本不认）
+        # 跳过 prereq 检查
         mkdir -p tmp
         touch tmp/.prereq_packages
-        # 创建 mkhash
+        # 链接系统常用工具（修复237源码构建顺序问题）
         mkdir -p staging_dir/host/bin
+        for tool in gzip tar xz bzip2 cpio awk sed grep find; do
+            [ ! -f "staging_dir/host/bin/$tool" ] && ln -sf "$(which $tool)" "staging_dir/host/bin/$tool"
+        done
+        # 创建 mkhash
         echo '#!/bin/bash' > staging_dir/host/bin/mkhash
         echo 'if [ "$1" = "sha256" ]; then shift; [ -n "$1" ] && sha256sum "$@" | awk "{print \$1}" || sha256sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
         echo 'if [ "$1" = "md5" ]; then shift; [ -n "$1" ] && md5sum "$@" | awk "{print \$1}" || md5sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
         chmod +x staging_dir/host/bin/mkhash
+        # 开始编译
         make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
-
-
 
     - name: Organize firmware
       if: env.compile_status == 'success'
