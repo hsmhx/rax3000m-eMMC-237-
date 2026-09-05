@@ -65,21 +65,19 @@ jobs:
         echo "===== Target ====="
         grep "CONFIG_TARGET_" .config | head -5
 
-    - name: Build firmware
+           - name: Build firmware
       if: github.event.inputs.skip_build != 'true'
       run: |
         cd openwrt
-        if [ ! -f staging_dir/host/bin/mkhash ]; then
-            mkdir -p staging_dir/host/bin
-            cat > staging_dir/host/bin/mkhash << 'INNEREOF'
-#!/bin/bash
-if [ "$1" = "sha256" ]; then shift; [ -n "$1" ] && sha256sum "$@" | awk '{print $1}' || sha256sum | awk '{print $1}'; fi
-if [ "$1" = "md5" ]; then shift; [ -n "$1" ] && md5sum "$@" | awk '{print $1}' || md5sum | awk '{print $1}'; fi
-INNEREOF
-            chmod +x staging_dir/host/bin/mkhash
-        fi
+        pip3 install setuptools
+        mkdir -p staging_dir/host/bin
+        echo '#!/bin/bash' > staging_dir/host/bin/mkhash
+        echo 'if [ "$1" = "sha256" ]; then shift; [ -n "$1" ] && sha256sum "$@" | awk "{print \$1}" || sha256sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
+        echo 'if [ "$1" = "md5" ]; then shift; [ -n "$1" ] && md5sum "$@" | awk "{print \$1}" || md5sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
+        chmod +x staging_dir/host/bin/mkhash
         make -j1 V=s
         echo "compile_status=success" >> $GITHUB_ENV
+
 
     - name: Organize firmware
       if: env.compile_status == 'success'
