@@ -69,8 +69,8 @@ jobs:
         echo 'if [ "$1" = "sha256" ]; then shift; [ -n "$1" ] && sha256sum "$@" | awk "{print \$1}" || sha256sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
         echo 'if [ "$1" = "md5" ]; then shift; [ -n "$1" ] && md5sum "$@" | awk "{print \$1}" || md5sum | awk "{print \$1}"; fi' >> staging_dir/host/bin/mkhash
         chmod +x staging_dir/host/bin/mkhash
-        # 链接系统工具
-        for tool in gzip tar xz bzip2 cpio awk sed grep find gcc cc g++ cpp ld as ar ranlib nm strip objcopy objdump make cmake python3 perl; do
+        # 链接系统工具（加上 bash 等基础工具）
+        for tool in bash sh env gzip tar xz bzip2 cpio awk sed grep find gcc cc g++ cpp ld as ar ranlib nm strip objcopy objdump make cmake python3 perl install ln cp mv rm mkdir chmod chown cat echo; do
             [ -x "$(which $tool 2>/dev/null)" ] && [ ! -f "staging_dir/host/bin/$tool" ] && ln -sf "$(which $tool)" "staging_dir/host/bin/$tool"
         done
         # 开始编译
