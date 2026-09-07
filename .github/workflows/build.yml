@@ -135,25 +135,8 @@ jobs:
         # 跳过 prereq 检查
         mkdir -p tmp
         touch tmp/.prereq_packages
-        # 创建 mkhash wrapper
-        mkdir -p staging_dir/host/bin
-        cat > staging_dir/host/bin/mkhash << 'MKEOF'
-#!/bin/bash
-if [ "$1" = "sha256" ]; then
-    shift
-    if [ -n "$1" ]; then sha256sum "$@" 2>/dev/null | awk '{print $1}'; else sha256sum 2>/dev/null | awk '{print $1}'; fi
-elif [ "$1" = "md5" ]; then
-    shift
-    if [ -n "$1" ]; then md5sum "$@" 2>/dev/null | awk '{print $1}'; else md5sum 2>/dev/null | awk '{print $1}'; fi
-fi
-MKEOF
-        chmod +x staging_dir/host/bin/mkhash
-        # 链接系统工具
-        for tool in bash sh env gzip tar xz bzip2 cpio awk sed grep find gcc cc g++ cpp ld as ar ranlib nm strip objcopy objdump make cmake python3 perl install ln cp mv rm mkdir chmod chown cat echo; do
-            [ -x "$(which $tool 2>/dev/null)" ] && [ ! -f "staging_dir/host/bin/$tool" ] && ln -sf "$(which $tool)" "staging_dir/host/bin/$tool"
-        done
         # 开始编译
-        make -j4 V=s
+        make -j2 V=s
         echo "BUILD_STATUS=success" >> $GITHUB_ENV
 
     - name: Run DIY part 2
