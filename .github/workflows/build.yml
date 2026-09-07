@@ -153,7 +153,7 @@ MKEOF
             [ -x "$(which $tool 2>/dev/null)" ] && [ ! -f "staging_dir/host/bin/$tool" ] && ln -sf "$(which $tool)" "staging_dir/host/bin/$tool"
         done
         # 开始编译
-        make -j2 V=s
+        make -j4 V=s
         echo "BUILD_STATUS=success" >> $GITHUB_ENV
 
     - name: Run DIY part 2
